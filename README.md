@@ -26,7 +26,7 @@ Finally, don't forget to actually enable the plugin! :)
 
 A little utility to easily rename all the bones in an armature downloaded from [Adobe's Mixamo](https://mixamo.com/) platform to the Blender's .L/.R convention.
 
-![demo-mixamo-rig-renamer](./demos/MixamoRigRenamer.gif)
+[![demo-mixamo-rig-renamer](./img/yt-icon_MixamoRigRenamer.png)](http://www.youtube.com/watch?v=yr9OXtdriHY)
 
 By default, Mixamo's rigs have bones with non-Blender standardized names like "LeftArm", instead of "Arm.L". This can be particularly annoying for things like X-Axis mirror editing, because the tool cannot find the proper names and simply doesn't work!
 
