@@ -1,5 +1,5 @@
 """
-[Blender and Python] A little Mixamo rig bone renamer plugin
+[Blender Plugins] A little Mixamo rig bone renamer plugin
 Mina Pêcheux - September 2021
 Email: mina.pecheux@gmail.com
 
