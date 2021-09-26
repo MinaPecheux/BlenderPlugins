@@ -106,7 +106,6 @@ class MixamoRigRenamerOperator(bpy.types.Operator):
 
         # re-assign remembered actions
         for obj_name, action_name in object_actions.items():
-            print(obj_name, action_name)
             bpy.data.objects[obj_name].animation_data_create()
             bpy.data.objects[obj_name].animation_data.action = action_name
 
