@@ -6,7 +6,7 @@ A collection of various Blender plugins written using the Python API.
 
 ## How to use these Blender plugins?
 
-To install these plugins to your Blender, simply download the Python file, then open your Preferences panel and go to the add-ons section.
+To install any of these plugins to your Blender, simply download the Python file, then open your Preferences panel and go to the add-ons section.
 
 Now, click on the "Install" button and pick the file on your computer.
 
@@ -21,6 +21,8 @@ Finally, don't forget to actually enable the plugin! :)
 ## List of available plugins
 
 ### [Rigging] Mixamo Rig Renamer
+
+[🔍 Download the Python file](MixamoRigRenamer.py)
 
 A little utility to easily rename all the bones in an armature downloaded from [Adobe's Mixamo](https://mixamo.com/) platform to the Blender's .L/.R convention.
 
