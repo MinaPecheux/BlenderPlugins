@@ -22,9 +22,10 @@ Finally, don't forget to actually enable the plugin! :)
 
 ### [Rigging] Mixamo Rig Renamer
 
-[🔍 Download the Python file](MixamoRigRenamer.py)
+[🔍 Download the Python file](./Rigging/MixamoRigRenamer.py)
 
-A little utility to easily rename all the bones in an armature downloaded from [Adobe's Mixamo](https://mixamo.com/) platform to the Blender's .L/.R convention.
+A little utility to easily rename all the bones in an armature downloaded from [Adobe's Mixamo](https://mixamo.com/) platform to the Blender's .L/.R convention. With version v2 (Jan. 2022), you can now also go back from the Blender-named
+rig to a Mixamo-named one.
 
 [![demo-mixamo-rig-renamer](./img/yt-icon_MixamoRigRenamer.png)](http://www.youtube.com/watch?v=yr9OXtdriHY)
 
