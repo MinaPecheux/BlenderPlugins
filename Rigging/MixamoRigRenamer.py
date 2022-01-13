@@ -1,10 +1,15 @@
 """
 [Blender Plugins] A little Mixamo rig bone renamer plugin
-Mina Pêcheux - September 2021
+Mina Pêcheux
+. v1: September 2021
+. v2: January 2022
 Email: mina.pecheux@gmail.com
 
 A very basic Blender addon to rename Mixamo rigs to the usual Blender convention:
 instead of having bone names like "LeftArm", you get back the "Arm.L" equivalent.
+
+v2: Can now also go the other way around and assume a "mixamorig" equivalent to a
+usual Blender-named rig.
 
 This is particularly useful when using the X-Axis mirror edition :)
 
@@ -15,7 +20,7 @@ The renaming logic is inspired by this gist by eeltork:
 
 MIT License
 
-Copyright (c) 2021 Mina Pêcheux
+Copyright (c) 2022 Mina Pêcheux
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -56,7 +61,7 @@ PROPS = [
 ]
 
 # == UTILS
-def get_standard_bone_name(mixamo_prefix, name, with_prefix=True):
+def get_mix_to_blend_bone_name(mixamo_prefix, name, with_prefix=True):
     if with_prefix:
         name = name[len(mixamo_prefix + '.'):]
     if 'Left' in name:
@@ -65,8 +70,20 @@ def get_standard_bone_name(mixamo_prefix, name, with_prefix=True):
         name = name[5:] + '.R'
     return name
 
-def replace_action_name(mixamo_prefix, match):
-    name = get_standard_bone_name(mixamo_prefix, match.group(1), with_prefix=False)
+def get_blend_to_mix_bone_name(mixamo_prefix, name):
+    if name.endswith('.L'):
+        name = 'Left' + name[:-2]
+    elif name.endswith('.R'):
+        name = 'Right' + name[:-2]
+    name = mixamo_prefix + ':' + name
+    return name
+
+def replace_action_name_mix_to_blend(mixamo_prefix, match):
+    name = get_mix_to_blend_bone_name(mixamo_prefix, match.group(1), with_prefix=False)
+    return '"%s"' % name
+
+def replace_action_name_blend_to_mix(mixamo_prefix, match):
+    name = get_blend_to_mix_bone_name(mixamo_prefix, match.group(1))
     return '"%s"' % name
 
 # == OPERATORS
@@ -78,6 +95,11 @@ class MixamoRigRenamerOperator(bpy.types.Operator):
     def execute(self, context):
         mixamo_prefix = context.scene.mixamo_prefix
         
+        # get selected armature
+        armature = bpy.context.active_object
+        if armature is None:
+            return
+
         # remember associated actions and cut the
         # connection for now
         object_actions = {}
@@ -85,24 +107,15 @@ class MixamoRigRenamerOperator(bpy.types.Operator):
             if obj.animation_data is not None:
                 object_actions[obj.name] = obj.animation_data.action
                 obj.animation_data_clear()
-        
-        # standardize bone names
-        for armature in bpy.data.armatures:
-            for bone in armature.bones:
-                name = bone.name
-                if mixamo_prefix in name:
-                    bone.name = get_standard_bone_name(mixamo_prefix, name)
+
+        # change bone names (mixamo > blender) of selected armature
+        for bone in armature.data.bones:
+            bone.name = self.replace_bone_name(mixamo_prefix, bone.name)
 
         # convert animation channel names
-        bone_pose_regex = r'"%s:(\w+)"' % mixamo_prefix
         for action in bpy.data.actions:
             for curve in action.fcurves:
-                p = curve.data_path
-                if mixamo_prefix in p:
-                    curve.data_path = re.sub(
-                        bone_pose_regex,
-                        lambda m: replace_action_name(mixamo_prefix, m),
-                        curve.data_path)
+                self.replace_action_name(mixamo_prefix, curve)
 
         # re-assign remembered actions
         for obj_name, action_name in object_actions.items():
@@ -110,6 +123,50 @@ class MixamoRigRenamerOperator(bpy.types.Operator):
             bpy.data.objects[obj_name].animation_data.action = action_name
 
         return {'FINISHED'}
+    
+    def replace_bone_name(self, mixamo_prefix, name):
+        raise NotImplementedError()
+    
+    def replace_action_name(self, mixamo_prefix, curve):
+        raise NotImplementedError()
+    
+class MixamoRigMixToBlendRenamerOperator(MixamoRigRenamerOperator):
+    
+    bl_idname = 'opr.mixamo_rig_mix_to_blend_renamer_operator'
+    bl_label = 'Mixamo Rig Renamer (Mixamo > Blender)'
+    
+    def replace_bone_name(self, mixamo_prefix, name):
+        if mixamo_prefix in name:
+            return get_mix_to_blend_bone_name(mixamo_prefix, name)
+        else:
+            return name
+    
+    def replace_action_name(self, mixamo_prefix, curve):
+        if mixamo_prefix in curve.data_path:
+            bone_pose_regex = r'"%s:(\w+)"' % mixamo_prefix
+            curve.data_path = re.sub(
+                bone_pose_regex,
+                lambda m: replace_action_name_mix_to_blend(mixamo_prefix, m),
+                curve.data_path)
+    
+class MixamoRigBlendToMixRenamerOperator(MixamoRigRenamerOperator):
+    
+    bl_idname = 'opr.mixamo_rig_blend_to_mix_renamer_operator'
+    bl_label = 'Mixamo Rig Renamer (Blender > Mixamo)'
+    
+    def replace_bone_name(self, mixamo_prefix, name):
+        if mixamo_prefix not in name:
+            return get_blend_to_mix_bone_name(mixamo_prefix, name)
+        else:
+            return name
+    
+    def replace_action_name(self, mixamo_prefix, curve):
+        bone_pose_regex = r'"([\w\.]+)"'
+        if mixamo_prefix not in curve.data_path:
+            curve.data_path = re.sub(
+                bone_pose_regex,
+                lambda m: replace_action_name_blend_to_mix(mixamo_prefix, m),
+                curve.data_path)
 
 # == PANELS
 class MixamoRigRenamerPanel(bpy.types.Panel):
@@ -124,12 +181,16 @@ class MixamoRigRenamerPanel(bpy.types.Panel):
         for (prop_name, _) in PROPS:
             row = col.row()
             row.prop(context.scene, prop_name)
-            
-        col.operator('opr.mixamo_rig_renamer_operator', text='Rename')
+        
+        col.separator()
+
+        col.operator('opr.mixamo_rig_mix_to_blend_renamer_operator', text='Mixamo > Blender')
+        col.operator('opr.mixamo_rig_blend_to_mix_renamer_operator', text='Blender > Mixamo')
 
 # == MAIN ROUTINE
 CLASSES = [
-    MixamoRigRenamerOperator,
+    MixamoRigMixToBlendRenamerOperator,
+    MixamoRigBlendToMixRenamerOperator,
     MixamoRigRenamerPanel,
 ]
 
