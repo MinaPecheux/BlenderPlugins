@@ -1,5 +1,7 @@
 # Model Views Exporter (MVE)
 
+[🔍 Download the Python file](./ModelViewsExporter.py)
+
 Prepare and export screenshots or anim clips for your 3D models easily, using common points of view (front, side, top...) but also extra features like an auto-turntable or wireframed pictures!
 
 The plugin works both for static and animated models.

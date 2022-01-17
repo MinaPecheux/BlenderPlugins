@@ -14,6 +14,7 @@ and export.
 More info on how I developed the plugin:
     
     - https://medium.com/p/how-i-automated-the-marketing-of-my-blender-3d-models-1-2-bc4f0454dfc3
+    - https://medium.com/p/how-i-automated-the-marketing-of-my-blender-3d-models-2-2-4687e5625e
 
 --------
 
