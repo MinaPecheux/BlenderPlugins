@@ -240,7 +240,7 @@ def get_3d_scene():
 
 def setup_scene(space3d):
     # remember some values
-    armature = bpy.data.objects['Armature']
+    armature = bpy.data.objects.get('Armature', None)
     scene_parameters = {
         'armature': armature,
         'armature_pose_position': armature.data.pose_position if armature else '',
@@ -352,7 +352,8 @@ class MVEExportOperator(bpy.types.Operator):
             show_wireframes(False)
             
             pov_name = pov.name.lower()
-            scene_parameters['armature'].data.pose_position = 'REST'
+            if scene_parameters['armature']:
+                scene_parameters['armature'].data.pose_position = 'REST'
             # (check if POV is enabled)
             if not pov.enabled:
                 continue
