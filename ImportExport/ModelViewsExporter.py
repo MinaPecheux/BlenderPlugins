@@ -119,6 +119,9 @@ PROPS = [
             ('MP4', 'MP4', 'Export as MP4'),
             ('AVI JPEG', 'AVI JPEG', 'Export as AVI JPEG'),
         ])),
+    ('export_ortho_scale', bpy.props.FloatProperty(
+        name='Ortho scale', default=1.0,
+        description='Output orthographic zoom multiplier')),
     ('bg_is_transparent', bpy.props.BoolProperty(
         name='Bg Is Transparent', default=False, description='Set a transparent or opaque export background')),
     ('bg_color', bpy.props.FloatVectorProperty(
@@ -140,7 +143,9 @@ def delete_obj(obj):
     obj.select_set(True)
     bpy.ops.object.delete()
 
-def make_camera(anchor, pov, camera_distance, model_size, turntable_length, turntable_height):
+def make_camera(
+    anchor, pov, ortho_scale, camera_distance,
+    model_size, turntable_length, turntable_height):
     offset, _ = POVs[pov]
     if pov == 'turntable':
         z = turntable_height
@@ -159,7 +164,7 @@ def make_camera(anchor, pov, camera_distance, model_size, turntable_length, turn
     # set camera options
     bpy.context.object.data.type = 'ORTHO'
     max_size = max(model_size.x, model_size.y, model_size.z)
-    bpy.context.object.data.ortho_scale = max_size * (1 + MARGIN)
+    bpy.context.object.data.ortho_scale = max_size * (1 + MARGIN) * ortho_scale
     
     # add tracking to anchor
     bpy.ops.object.constraint_add(type='TRACK_TO')
@@ -356,6 +361,7 @@ class MVEExportOperator(bpy.types.Operator):
         export_resolution = context.scene.export_resolution
         export_img_format = context.scene.export_img_format
         export_movie_format = context.scene.export_movie_format
+        export_ortho_scale = context.scene.export_ortho_scale
         camera_distance = context.scene.camera_distance
         turntable_length = context.scene.turntable_length
         turntable_height = context.scene.turntable_height
@@ -394,7 +400,7 @@ class MVEExportOperator(bpy.types.Operator):
                 continue
             # (create camera for POV)
             cam, cam_anchor = make_camera(
-                anchor, pov_name,
+                anchor, pov_name, export_ortho_scale,
                 camera_distance, model_size,
                 turntable_length, turntable_height)
             # (assign camera)        
@@ -420,7 +426,7 @@ class MVEExportOperator(bpy.types.Operator):
                     if animation.anchor is not None:
                         delete_obj(cam)
                         cam, _ = make_camera(
-                            animation.anchor, pov_name,
+                            animation.anchor, pov_name, export_ortho_scale,
                             camera_distance, model_size,
                             turntable_length, turntable_height)
                         bpy.context.scene.camera = cam
@@ -445,7 +451,7 @@ class MVEExportOperator(bpy.types.Operator):
                     if animation.anchor is not None:
                         delete_obj(cam)
                         cam, _ = make_camera(
-                            anchor, pov_name,
+                            anchor, pov_name, export_ortho_scale,
                             camera_distance, model_size,
                             turntable_length, turntable_height)
                         bpy.context.scene.camera = cam
@@ -506,6 +512,7 @@ class MVETestPOVOperator(bpy.types.Operator):
                 model = context.active_object
                 model_size = model.dimensions
 
+                export_ortho_scale = context.scene.export_ortho_scale
                 camera_distance = context.scene.camera_distance
                 turntable_length = context.scene.turntable_length
                 turntable_height = context.scene.turntable_height
@@ -521,7 +528,7 @@ class MVETestPOVOperator(bpy.types.Operator):
             
                 # (create camera for POV)
                 cam, cam_anchor = make_camera(
-                    anchor, self.pov,
+                    anchor, self.pov, export_ortho_scale,
                     camera_distance, model_size,
                     turntable_length, turntable_height)
                     
@@ -647,6 +654,7 @@ class MVEExportPanelBaseOptions(MVEExportPanelSubpanel, bpy.types.Panel):
         wire_suffix_cell.prop(context.scene, 'wireframe_suffix')
         col.separator()
         col.prop(context.scene, 'camera_distance')
+        col.prop(context.scene, 'export_ortho_scale')
 
 class MVEExportPanelBgOptions(MVEExportPanelSubpanel, bpy.types.Panel):
     
