@@ -490,6 +490,64 @@ class MVEDeselectAllPOVsOperator(bpy.types.Operator):
         
         return {'FINISHED'}
 
+class MVETestPOVOperator(bpy.types.Operator):
+    
+    bl_idname = 'opr.mve_test_pov_operator'
+    bl_label = 'MVE Test POV'
+    bl_description = 'Test a point of view by moving the current scene view'
+    
+    pov : bpy.props.StringProperty()
+    
+    def execute(self, context):
+        for area in context.screen.areas:
+            if area.type == 'VIEW_3D':
+                r = area.spaces.active.region_3d
+
+                model = context.active_object
+                model_size = model.dimensions
+
+                camera_distance = context.scene.camera_distance
+                turntable_length = context.scene.turntable_length
+                turntable_height = context.scene.turntable_height
+
+                # try to get user-defined anchor
+                anchor = context.scene.anchor
+                destroy_anchor = False
+                # else create anchor
+                if anchor is None:
+                    bpy.ops.object.empty_add(location=(0, 0, model_size.z / 2.0))
+                    anchor = bpy.context.active_object
+                    destroy_anchor = True
+            
+                # (create camera for POV)
+                cam, cam_anchor = make_camera(
+                    anchor, self.pov,
+                    camera_distance, model_size,
+                    turntable_length, turntable_height)
+                    
+                context.view_layer.update()
+
+                r.view_matrix = cam.matrix_world.inverted()
+                r.view_location = anchor.location
+                r.view_perspective = 'ORTHO'
+                r.view_distance = cam.data.ortho_scale * 1.2
+
+                if cam_anchor is not None:
+                    delete_obj(cam_anchor)
+                # (delete camera for POV)
+                delete_obj(cam)
+
+                # delete temporary anchor
+                if destroy_anchor:
+                    delete_obj(anchor)
+                    
+                model.select_set(True)
+                context.view_layer.objects.active = model
+
+                break
+        
+        return {'FINISHED'}
+
 class MVESelectAllAnimsOperator(bpy.types.Operator):
     
     bl_idname = 'opr.mve_select_all_anims_operator'
@@ -634,7 +692,10 @@ class MVEExportPanelPOVs(MVEExportPanelSubpanel, bpy.types.Panel):
             extras = pov_row.row()
             extras.enabled = getattr(item, 'enabled')
             extras.prop(item, 'suffix', text='')
-            
+                        
+            op = pov_row.operator('opr.mve_test_pov_operator', text='', icon='HIDE_OFF')
+            op.pov = item.name.lower()
+
             if item.name.lower() == 'turntable' and item.enabled:
                 subcol = col.column()
                 subcol.prop(context.scene, 'turntable_length')
@@ -681,6 +742,7 @@ CLASSES = [
     MVEExportOperator,
     MVESelectAllPOVsOperator,
     MVEDeselectAllPOVsOperator,
+    MVETestPOVOperator,
     MVESelectAllAnimsOperator,
     MVEDeselectAllAnimsOperator,
     MVEPickAnimationOperator,
