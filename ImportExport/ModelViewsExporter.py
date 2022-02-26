@@ -124,8 +124,12 @@ PROPS = [
     ('bg_color', bpy.props.FloatVectorProperty(
         name='Bakground Color', subtype='COLOR', default=(0.057, 0.057, 0.057),
         description='Background color for all exports')),
+    ('camera_distance', bpy.props.FloatProperty(
+        name='Camera Distance', default=1.0, description='Distance to the target object')),
     ('turntable_length', bpy.props.IntProperty(
         name='Turntable Length', default=160, description='Number of frames for the turntables')),
+    ('turntable_height', bpy.props.FloatProperty(
+        name='Turntable Height', default=0.2, description='Height of the camera for the turntables')),
     ('povs', bpy.props.CollectionProperty(name='POVs', type=POVProp)),
     ('animations', bpy.props.CollectionProperty(name='Animations', type=AnimationProp)),
 ]
@@ -136,13 +140,17 @@ def delete_obj(obj):
     obj.select_set(True)
     bpy.ops.object.delete()
 
-def make_camera(anchor, pov, model_size, turntable_length):
+def make_camera(anchor, pov, camera_distance, model_size, turntable_length, turntable_height):
     offset, _ = POVs[pov]
-    d = 3 # (arbitrary distance to avoid clipping)
+    if pov == 'turntable':
+        z = turntable_height
+    else:
+        z = offset[2]
+    d = 3 * camera_distance # (arbitrary distance to avoid clipping)
     loc = (
         anchor.location[0] + d * offset[0],
         anchor.location[1] + d * offset[1],
-        anchor.location[2] + d * offset[2])
+        anchor.location[2] + d * z)
         
     # create camera object
     bpy.ops.object.camera_add(location=loc)
@@ -348,7 +356,9 @@ class MVEExportOperator(bpy.types.Operator):
         export_resolution = context.scene.export_resolution
         export_img_format = context.scene.export_img_format
         export_movie_format = context.scene.export_movie_format
+        camera_distance = context.scene.camera_distance
         turntable_length = context.scene.turntable_length
+        turntable_height = context.scene.turntable_height
 
         # get current scene setup
         space3d = get_3d_scene()
@@ -383,7 +393,10 @@ class MVEExportOperator(bpy.types.Operator):
             if not pov.enabled:
                 continue
             # (create camera for POV)
-            cam, cam_anchor = make_camera(anchor, pov_name, model_size, turntable_length)
+            cam, cam_anchor = make_camera(
+                anchor, pov_name,
+                camera_distance, model_size,
+                turntable_length, turntable_height)
             # (assign camera)        
             bpy.context.scene.camera = cam
             space3d.region_3d.view_perspective = 'CAMERA'
@@ -406,7 +419,10 @@ class MVEExportOperator(bpy.types.Operator):
                     # (recompute anchor if need be)
                     if animation.anchor is not None:
                         delete_obj(cam)
-                        cam, _ = make_camera(animation.anchor, pov_name, model_size, turntable_length)
+                        cam, _ = make_camera(
+                            animation.anchor, pov_name,
+                            camera_distance, model_size,
+                            turntable_length, turntable_height)
                         bpy.context.scene.camera = cam
                         space3d.region_3d.view_perspective = 'CAMERA'
                     # (set anim)
@@ -428,7 +444,10 @@ class MVEExportOperator(bpy.types.Operator):
                     
                     if animation.anchor is not None:
                         delete_obj(cam)
-                        cam, _ = make_camera(anchor, pov_name, model_size, turntable_length)
+                        cam, _ = make_camera(
+                            anchor, pov_name,
+                            camera_distance, model_size,
+                            turntable_length, turntable_height)
                         bpy.context.scene.camera = cam
                         space3d.region_3d.view_perspective = 'CAMERA'
             if cam_anchor is not None:
@@ -568,6 +587,8 @@ class MVEExportPanelBaseOptions(MVEExportPanelSubpanel, bpy.types.Panel):
         wire_suffix_cell = col.row()
         wire_suffix_cell.enabled = context.scene.do_wireframes
         wire_suffix_cell.prop(context.scene, 'wireframe_suffix')
+        col.separator()
+        col.prop(context.scene, 'camera_distance')
 
 class MVEExportPanelBgOptions(MVEExportPanelSubpanel, bpy.types.Panel):
     
@@ -615,8 +636,9 @@ class MVEExportPanelPOVs(MVEExportPanelSubpanel, bpy.types.Panel):
             extras.prop(item, 'suffix', text='')
             
             if item.name.lower() == 'turntable' and item.enabled:
-                subrow = col.row()
-                subrow.prop(context.scene, 'turntable_length')
+                subcol = col.column()
+                subcol.prop(context.scene, 'turntable_length')
+                subcol.prop(context.scene, 'turntable_height')
 
 class MVEExportPanelAnimations(MVEExportPanelSubpanel, bpy.types.Panel):
     
