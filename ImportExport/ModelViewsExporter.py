@@ -83,7 +83,7 @@ POVs = {
     'right': ((-1, 0, 0), True),
     'top': ((0, 0, 1), True),
     'persp': ((1, -1, 1), True),
-    'turntable': ((0, -1, 0.2), True),
+    'turnaround': ((0, -1, 0.2), True),
     'back': ((0, 1, 0), False),
     'bottom': ((0, 0, -1), False),
 }
@@ -113,7 +113,7 @@ PROPS = [
         ])),
     ('export_movie_format', bpy.props.EnumProperty(
         name='Movie Format', default='MP4',
-        description='Output format for the anim/turntable exports',
+        description='Output format for the anim/turnaround exports',
         items=[
             # (identifier, name, description)
             ('MP4', 'MP4', 'Export as MP4'),
@@ -129,10 +129,10 @@ PROPS = [
         description='Background color for all exports')),
     ('camera_distance', bpy.props.FloatProperty(
         name='Camera Distance', default=1.0, description='Distance to the target object')),
-    ('turntable_length', bpy.props.IntProperty(
-        name='Turntable Length', default=160, description='Number of frames for the turntables')),
-    ('turntable_height', bpy.props.FloatProperty(
-        name='Turntable Height', default=0.2, description='Height of the camera for the turntables')),
+    ('turnaround_length', bpy.props.IntProperty(
+        name='Turnaround Length', default=160, description='Number of frames for the turnarounds')),
+    ('turnaround_height', bpy.props.FloatProperty(
+        name='Turnaround Height', default=0.2, description='Height of the camera for the turnarounds')),
     ('povs', bpy.props.CollectionProperty(name='POVs', type=POVProp)),
     ('animations', bpy.props.CollectionProperty(name='Animations', type=AnimationProp)),
 ]
@@ -145,10 +145,10 @@ def delete_obj(obj):
 
 def make_camera(
     anchor, pov, ortho_scale, camera_distance,
-    model_size, turntable_length, turntable_height):
+    model_size, turnaround_length, turnaround_height):
     offset, _ = POVs[pov]
-    if pov == 'turntable':
-        z = turntable_height
+    if pov == 'turnaround':
+        z = turnaround_height
     else:
         z = offset[2]
     d = 3 * camera_distance # (arbitrary distance to avoid clipping)
@@ -170,10 +170,10 @@ def make_camera(
     bpy.ops.object.constraint_add(type='TRACK_TO')
     bpy.context.object.constraints['Track To'].target = anchor
     
-    # special case: turntable => create a center anchor,
+    # special case: turnaround => create a center anchor,
     # parent the camera and add keyframes
     cam_anchor = None
-    if pov == 'turntable':
+    if pov == 'turnaround':
         # (create anchor and parent the camera)
         bpy.ops.object.empty_add(location=(0, 0, 0))
         cam_anchor = bpy.context.active_object
@@ -184,7 +184,7 @@ def make_camera(
         fcurve = cam_anchor.animation_data.action.fcurves.new(data_path='rotation_euler', index=2)
         k1 = fcurve.keyframe_points.insert(frame=1, value=0)
         k1.interpolation = 'LINEAR'
-        k2 = fcurve.keyframe_points.insert(frame=turntable_length, value=2.0*pi)
+        k2 = fcurve.keyframe_points.insert(frame=turnaround_length, value=2.0*pi)
         k2.interpolation = 'LINEAR'
     
     return (camera, cam_anchor)
@@ -206,7 +206,7 @@ def set_movie_format(scene, format):
 def export_pov(
     space3d, pov, prefix, suffix, bg,
     export_resolution, export_img_format, export_movie_format,
-    base_path, turntable_length,
+    base_path, turnaround_length,
     animation=None, wireframe=False, wireframe_suffix=''):
     scene = bpy.context.scene
 
@@ -217,8 +217,8 @@ def export_pov(
     if wireframe:
         show_wireframes(True)
     
-    # special case: turntable
-    if pov == 'turntable':
+    # special case: turnaround
+    if pov == 'turnaround':
         ext = set_movie_format(scene, export_movie_format)
 
         p = base_path + '{}{}'.format(prefix, suffix)
@@ -228,7 +228,7 @@ def export_pov(
         scene.render.filepath = p
 
         scene.frame_start = 1
-        scene.frame_end = turntable_length
+        scene.frame_end = turnaround_length
         
         bpy.ops.render.opengl(write_still=True, view_context=True, animation=True)
     # all other cases
@@ -363,8 +363,8 @@ class MVEExportOperator(bpy.types.Operator):
         export_movie_format = context.scene.export_movie_format
         export_ortho_scale = context.scene.export_ortho_scale
         camera_distance = context.scene.camera_distance
-        turntable_length = context.scene.turntable_length
-        turntable_height = context.scene.turntable_height
+        turnaround_length = context.scene.turnaround_length
+        turnaround_height = context.scene.turnaround_height
 
         # get current scene setup
         space3d = get_3d_scene()
@@ -402,7 +402,7 @@ class MVEExportOperator(bpy.types.Operator):
             cam, cam_anchor = make_camera(
                 anchor, pov_name, export_ortho_scale,
                 camera_distance, model_size,
-                turntable_length, turntable_height)
+                turnaround_length, turnaround_height)
             # (assign camera)        
             bpy.context.scene.camera = cam
             space3d.region_3d.view_perspective = 'CAMERA'
@@ -411,16 +411,16 @@ class MVEExportOperator(bpy.types.Operator):
             export_pov(
                 space3d, pov_name, prefix, suffix, background,
                 export_resolution, export_img_format, export_movie_format,
-                base_path, turntable_length, animation=None)
+                base_path, turnaround_length, animation=None)
                 
             if context.scene.do_wireframes:
                 export_pov(
                     space3d, pov_name, prefix, suffix, background,
                     export_resolution, export_img_format, export_movie_format,
-                    base_path, turntable_length, animation=None,
+                    base_path, turnaround_length, animation=None,
                     wireframe=True, wireframe_suffix=context.scene.wireframe_suffix)
                     
-            if pov_name != 'turntable':
+            if pov_name != 'turnaround':
                 for animation in animations:
                     # (recompute anchor if need be)
                     if animation.anchor is not None:
@@ -428,7 +428,7 @@ class MVEExportOperator(bpy.types.Operator):
                         cam, _ = make_camera(
                             animation.anchor, pov_name, export_ortho_scale,
                             camera_distance, model_size,
-                            turntable_length, turntable_height)
+                            turnaround_length, turnaround_height)
                         bpy.context.scene.camera = cam
                         space3d.region_3d.view_perspective = 'CAMERA'
                     # (set anim)
@@ -437,13 +437,13 @@ class MVEExportOperator(bpy.types.Operator):
                     export_pov(
                         space3d, pov_name, prefix, suffix, background,
                         export_resolution, export_img_format, export_movie_format,
-                        base_path, turntable_length, animation=animation.name)
+                        base_path, turnaround_length, animation=animation.name)
 
                     if context.scene.do_wireframes:
                         export_pov(
                             space3d, pov_name, prefix, suffix, background,
                             export_resolution, export_img_format, export_movie_format,
-                            base_path, turntable_length, animation=animation.name,
+                            base_path, turnaround_length, animation=animation.name,
                             wireframe=True, wireframe_suffix=context.scene.wireframe_suffix)
 
                     model.data.pose_position = 'REST'
@@ -453,7 +453,7 @@ class MVEExportOperator(bpy.types.Operator):
                         cam, _ = make_camera(
                             anchor, pov_name, export_ortho_scale,
                             camera_distance, model_size,
-                            turntable_length, turntable_height)
+                            turnaround_length, turnaround_height)
                         bpy.context.scene.camera = cam
                         space3d.region_3d.view_perspective = 'CAMERA'
             if cam_anchor is not None:
@@ -514,8 +514,8 @@ class MVETestPOVOperator(bpy.types.Operator):
 
                 export_ortho_scale = context.scene.export_ortho_scale
                 camera_distance = context.scene.camera_distance
-                turntable_length = context.scene.turntable_length
-                turntable_height = context.scene.turntable_height
+                turnaround_length = context.scene.turnaround_length
+                turnaround_height = context.scene.turnaround_height
 
                 # try to get user-defined anchor
                 anchor = context.scene.anchor
@@ -530,7 +530,7 @@ class MVETestPOVOperator(bpy.types.Operator):
                 cam, cam_anchor = make_camera(
                     anchor, self.pov, export_ortho_scale,
                     camera_distance, model_size,
-                    turntable_length, turntable_height)
+                    turnaround_length, turnaround_height)
                     
                 context.view_layer.update()
 
@@ -704,10 +704,10 @@ class MVEExportPanelPOVs(MVEExportPanelSubpanel, bpy.types.Panel):
             op = pov_row.operator('opr.mve_test_pov_operator', text='', icon='HIDE_OFF')
             op.pov = item.name.lower()
 
-            if item.name.lower() == 'turntable' and item.enabled:
+            if item.name.lower() == 'turnaround' and item.enabled:
                 subcol = col.column()
-                subcol.prop(context.scene, 'turntable_length')
-                subcol.prop(context.scene, 'turntable_height')
+                subcol.prop(context.scene, 'turnaround_length')
+                subcol.prop(context.scene, 'turnaround_height')
 
 class MVEExportPanelAnimations(MVEExportPanelSubpanel, bpy.types.Panel):
     
