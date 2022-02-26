@@ -103,6 +103,22 @@ PROPS = [
     ('export_resolution', bpy.props.IntVectorProperty(
         name='Export Resolution', subtype='TRANSLATION', size=2, default=(1920, 1080),
         description='Width/Height to use for the exported images/clips')),
+    ('export_img_format', bpy.props.EnumProperty(
+        name='Image Format', default='PNG',
+        description='Output format for the image (still) exports',
+        items=[
+            # (identifier, name, description)
+            ('JPEG', 'JPEG', 'Export as JPG'),
+            ('PNG', 'PNG', 'Export as PNG'),
+        ])),
+    ('export_movie_format', bpy.props.EnumProperty(
+        name='Movie Format', default='MP4',
+        description='Output format for the anim/turntable exports',
+        items=[
+            # (identifier, name, description)
+            ('MP4', 'MP4', 'Export as MP4'),
+            ('AVI JPEG', 'AVI JPEG', 'Export as AVI JPEG'),
+        ])),
     ('bg_is_transparent', bpy.props.BoolProperty(
         name='Bg Is Transparent', default=False, description='Set a transparent or opaque export background')),
     ('bg_color', bpy.props.FloatVectorProperty(
@@ -164,9 +180,20 @@ def show_wireframes(on):
     for obj in bpy.data.objects:
         obj.show_wire = on
 
+def set_movie_format(scene, format):
+    scene.render.film_transparent = False
+    if format == 'MP4':
+        scene.render.image_settings.file_format = 'FFMPEG'
+        scene.render.ffmpeg.format = 'MPEG4'
+        return '.mp4'
+    else:
+        scene.render.image_settings.file_format = 'AVI_JPEG'
+        return '.avi'
+
 def export_pov(
     space3d, pov, prefix, suffix, bg,
-    export_resolution, base_path, turntable_length,
+    export_resolution, export_img_format, export_movie_format,
+    base_path, turntable_length,
     animation=None, wireframe=False, wireframe_suffix=''):
     scene = bpy.context.scene
 
@@ -179,30 +206,29 @@ def export_pov(
     
     # special case: turntable
     if pov == 'turntable':
+        ext = set_movie_format(scene, export_movie_format)
+
         p = base_path + '{}{}'.format(prefix, suffix)
         if wireframe:
             p += wireframe_suffix
-        p += '.avi'
+        p += ext
         scene.render.filepath = p
 
         scene.frame_start = 1
         scene.frame_end = turntable_length
         
-        scene.render.film_transparent = False
-        if bg != 'transparent':
-            space3d.shading.background_color = bg
-        scene.render.image_settings.file_format = 'AVI_JPEG'
         bpy.ops.render.opengl(write_still=True, view_context=True, animation=True)
     # all other cases
     else:
         if animation is None:
+            scene.render.image_settings.file_format = export_img_format
+
             p = base_path + '{}{}'.format(prefix, suffix)
             if wireframe:
                 p += wireframe_suffix
-            p += '.png'
+            p += '.{}'.format(export_img_format.lower())
             scene.render.filepath = p
             
-            scene.render.image_settings.file_format = 'PNG'
             if bg == 'transparent':
                 scene.render.film_transparent = True
                 scene.render.image_settings.color_mode = 'RGBA'
@@ -212,21 +238,18 @@ def export_pov(
                 space3d.shading.background_color = bg
             bpy.ops.render.opengl(write_still=True, view_context=True)
         else:
+            ext = set_movie_format(scene, export_movie_format)
             s = '-' if prefix != '' else ''
             p = base_path + '{}{}{}{}'.format(prefix, s, animation, suffix)
             if wireframe:
                 p += wireframe_suffix
-            p += '.avi'
+            p += ext
             scene.render.filepath = p
             
             range = bpy.data.actions[animation].frame_range
             scene.frame_start = range.x
             scene.frame_end = range.y - 1
             
-            scene.render.film_transparent = False
-            if bg != 'transparent':
-                space3d.shading.background_color = bg
-            scene.render.image_settings.file_format = 'AVI_JPEG'
             bpy.ops.render.opengl(write_still=True, view_context=True, animation=True)
             
     if wireframe:
@@ -323,6 +346,8 @@ class MVEExportOperator(bpy.types.Operator):
             background = context.scene.bg_color
         
         export_resolution = context.scene.export_resolution
+        export_img_format = context.scene.export_img_format
+        export_movie_format = context.scene.export_movie_format
         turntable_length = context.scene.turntable_length
 
         # get current scene setup
@@ -366,15 +391,15 @@ class MVEExportOperator(bpy.types.Operator):
             suffix = '_{}'.format(pov_name)
             export_pov(
                 space3d, pov_name, prefix, suffix, background,
-                export_resolution, base_path, turntable_length,
-                animation=None)
+                export_resolution, export_img_format, export_movie_format,
+                base_path, turntable_length, animation=None)
                 
             if context.scene.do_wireframes:
                 export_pov(
                     space3d, pov_name, prefix, suffix, background,
-                    export_resolution, base_path, turntable_length,
-                    animation=None, wireframe=True,
-                    wireframe_suffix=context.scene.wireframe_suffix)
+                    export_resolution, export_img_format, export_movie_format,
+                    base_path, turntable_length, animation=None,
+                    wireframe=True, wireframe_suffix=context.scene.wireframe_suffix)
                     
             if pov_name != 'turntable':
                 for animation in animations:
@@ -389,15 +414,15 @@ class MVEExportOperator(bpy.types.Operator):
                     model.animation_data.action = bpy.data.actions[animation.name]
                     export_pov(
                         space3d, pov_name, prefix, suffix, background,
-                        export_resolution, base_path, turntable_length,
-                        animation=animation.name)
+                        export_resolution, export_img_format, export_movie_format,
+                        base_path, turntable_length, animation=animation.name)
 
                     if context.scene.do_wireframes:
                         export_pov(
                             space3d, pov_name, prefix, suffix, background,
-                            export_resolution, base_path, turntable_length,
-                            animation=animation.name, wireframe=True,
-                            wireframe_suffix=context.scene.wireframe_suffix)
+                            export_resolution, export_img_format, export_movie_format,
+                            base_path, turntable_length, animation=animation.name,
+                            wireframe=True, wireframe_suffix=context.scene.wireframe_suffix)
 
                     model.data.pose_position = 'REST'
                     
@@ -437,7 +462,7 @@ class MVESelectAllPOVsOperator(bpy.types.Operator):
 class MVEDeselectAllPOVsOperator(bpy.types.Operator):
     
     bl_idname = 'opr.mve_deselect_all_povs_operator'
-    bl_label = 'MVE Deelect All POVs'
+    bl_label = 'MVE Deselect All POVs'
     bl_description = 'Disable all points of views for export'
     
     def execute(self, context):
@@ -534,6 +559,8 @@ class MVEExportPanelBaseOptions(MVEExportPanelSubpanel, bpy.types.Panel):
         col = self.layout.column()
         col.prop(context.scene, 'base_path', text='Path')
         col.prop(context.scene, 'export_resolution')
+        col.prop(context.scene, 'export_img_format')
+        col.prop(context.scene, 'export_movie_format')
         col.separator()
         col.prop(context.scene, 'prefix')
         col.prop(context.scene, 'anchor')
