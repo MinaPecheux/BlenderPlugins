@@ -6,7 +6,7 @@ A collection of various Blender plugins written using the Python API.
 
 ## How to use these Blender plugins?
 
-To install any of these plugins to your Blender, simply download the Python file, then open your Preferences panel and go to the add-ons section.
+To install any of these plugins to your Blender, simply download the Python file (by opening in the Github, and saving it to your computer), then open your Preferences panel and go to the add-ons section.
 
 Now, click on the "Install" button and pick the file on your computer.
 
